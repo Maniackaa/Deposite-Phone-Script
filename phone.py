@@ -3,7 +3,7 @@ import datetime
 
 import requests
 import uvicorn
-from adbutils import AdbClient
+from adbutils import AdbClient, AdbDevice
 from fastapi import FastAPI
 from starlette.responses import HTMLResponse
 
@@ -18,7 +18,7 @@ app = FastAPI()
 logger = get_my_loggers()
 
 
-def get_device():
+def get_device() -> AdbDevice:
     try:
         adb_client = AdbClient(host="127.0.0.1", port=5037, socket_timeout=1)
         adb_devices = adb_client.device_list()
@@ -47,52 +47,56 @@ async def job(device, data: dict):
     1. Ввод данных карты и ожидание sms
     2. Ввод смс-кода
     """
-    payment_id = data['payment_id']
-    job_logger = get_my_loggers().bind(phone=device.serial, payment_id=payment_id)
-    job_logger.debug(f'Старт job: {device.serial}, {data}')
-    job_logger.info(F'Телефон {device.serial} start job {data}')
+    try:
+        payment_id = data['payment_id']
+        job_logger = get_my_loggers().bind(phone=device.serial, payment_id=payment_id)
+        job_logger.debug(f'Старт job: {device.serial}, {data}')
+        job_logger.info(F'Телефон {device.serial} start job {data}')
 
-    status = await get_status(payment_id)
-    if status != 3:
-        job_logger.warning(f'Некорректный статус: {status}')
-        return
+        status = await get_status(payment_id)
+        if status != 3:
+            job_logger.warning(f'Некорректный статус: {status}')
+            return
 
-    # # Меняем статус на 4 Отправлено боту
-    response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
-                              data={'id': payment_id, 'status': 4})
-    job_logger.debug('Изменен статус на 4. Отправлено боту')
-    # Ввод данных карты
-    await insert_card_data(device, data=data)
-    # Меняем статус на 5 Ожидание смс
-    response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
-                              data={'id': payment_id, 'status': 5})
-    job_logger.debug('Статус 5 Ожидание смс')
-    await asyncio.sleep(10)
-    sms = ''
-    step_2_required = data['step_2_required']
-    start_time = datetime.datetime.now()
-    while not sms or not step_2_required:
-        await asyncio.sleep(3)
-        total_time = datetime.datetime.now() - start_time
-        if total_time > datetime.timedelta(minutes=3):
-            job_logger.debug('Ожидание вышло')
-            return False
-        response = requests.get(
-            url=f'{settings.HOST}/api/payment_status/',
-            data={'id': payment_id})
-        job_logger.debug(response.status_code)
-        job_logger.debug(response.text)
-        response_data = response.json()
-        sms = response_data.get('sms')
-        job_logger.debug('Ожидание sms_code')
-    if step_2_required:
-        job_logger.info(f'Получен код смс: {sms}')
-        await insert_sms_code(device, data, sms)
-    # Меняем статус на 6 Бот отработал
-    response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
-                              data={'id': payment_id, 'status': 6})
-    job_logger.debug('Статус 6 Бот отработал. Конец')
-
+        # # Меняем статус на 4 Отправлено боту
+        response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
+                                  data={'id': payment_id, 'status': 4})
+        job_logger.debug('Изменен статус на 4. Отправлено боту')
+        # Ввод данных карты
+        await insert_card_data(device, data=data)
+        # Меняем статус на 5 Ожидание смс
+        response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
+                                  data={'id': payment_id, 'status': 5})
+        job_logger.debug('Статус 5 Ожидание смс')
+        await asyncio.sleep(10)
+        sms = ''
+        step_2_required = data['step_2_required']
+        start_time = datetime.datetime.now()
+        while not sms or not step_2_required:
+            await asyncio.sleep(3)
+            total_time = datetime.datetime.now() - start_time
+            if total_time > datetime.timedelta(minutes=3):
+                job_logger.debug('Ожидание вышло')
+                return False
+            response = requests.get(
+                url=f'{settings.HOST}/api/payment_status/',
+                data={'id': payment_id})
+            job_logger.debug(response.status_code)
+            job_logger.debug(response.text)
+            response_data = response.json()
+            sms = response_data.get('sms')
+            job_logger.debug('Ожидание sms_code')
+        if step_2_required:
+            job_logger.info(f'Получен код смс: {sms}')
+            await insert_sms_code(device, data, sms)
+        # Меняем статус на 6 Бот отработал
+        response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
+                                  data={'id': payment_id, 'status': 6})
+        job_logger.debug('Статус 6 Бот отработал. Конец')
+    except ConnectionError:
+        logger.warning('Сервер не доступен')
+    except Exception as err:
+        logger.error(err)
 
 @app.get("/")
 async def root(payment_id: str,
@@ -170,10 +174,11 @@ function getData() {{
 
             tag_data = """
             <h3>Платеж {payment_id}</h3>
-            <h4>Телефон: {device}</h4>
+            <h3>Сумма {amount}</h3>
+            <h4>Телефон: {device_serial}</h4>
             {card_number}<br>
             {expired_month}/{expired_year}<br>
-
+            <br>Тип: <b>{name}</b>
             <div>
               <p>SMS: <span id="sms"></span></p>
               <p>Status: <span id="status"></span></p>
@@ -181,11 +186,14 @@ function getData() {{
             {script}
             """
             return HTMLResponse(content=tag_data.format(
-                payment_id=payment_id, device=device,
-                card_number=card_number, expired_month=expired_month, expired_year=expired_year,
+                payment_id=payment_id, amount=amount, device_serial=device.serial,
+                card_number=card_number, expired_month=expired_month, expired_year=expired_year, name=data['name'],
                 sms='sms', script=script))
         else:
             return "Телефон не найден"
+
+    except ConnectionError as err:
+        logger.error(err)
 
     except Exception as err:
         logger.error(err)
