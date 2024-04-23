@@ -6,7 +6,8 @@ from config.bot_settings import press_tab, get_my_loggers
 
 
 async def insert_card_data(adb_device: AdbDevice, data: dict):
-    logger = get_my_loggers().bind(phone_serial=adb_device.serial)
+    payment_id = data['payment_id']
+    logger = get_my_loggers().bind(payment_id=payment_id, phone_serial=adb_device.serial)
     owner_name = data['owner_name']
     amount = data['amount']
     card_number = data['card_number']

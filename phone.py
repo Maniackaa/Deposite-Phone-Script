@@ -31,14 +31,12 @@ def get_device() -> AdbDevice:
 
 
 async def get_status(payment_id):
-    logger.debug(f'Проверка статуса: {payment_id}')
     response = requests.get(url=f'{settings.HOST}/api/payment_status/',
                             data={
                                 'id': f'{payment_id}'}
                             )
     status = response.json().get('status')
     logger.debug(f'status {payment_id}: {status}')
-    await asyncio.sleep(0.1)
     return status
 
 
@@ -81,11 +79,9 @@ async def job(device, data: dict):
             response = requests.get(
                 url=f'{settings.HOST}/api/payment_status/',
                 data={'id': payment_id})
-            job_logger.debug(response.status_code)
-            job_logger.debug(response.text)
             response_data = response.json()
             sms = response_data.get('sms')
-            job_logger.debug('Ожидание sms_code')
+            job_logger.debug(f'Ожидание sms_code {response.text}')
         if step_2_required:
             job_logger.info(f'Получен код смс: {sms}')
             await insert_sms_code(device, data, sms)
