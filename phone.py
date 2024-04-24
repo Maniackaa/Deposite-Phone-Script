@@ -48,7 +48,8 @@ async def job(device, data: dict):
     """
     try:
         payment_id = data['payment_id']
-        job_logger = get_my_loggers().bind(phone=device.serial, payment_id=payment_id)
+        logger = get_my_loggers()
+        job_logger = logger.bind(phone=device.serial, payment_id=payment_id)
         job_logger.debug(f'Старт job: {device.serial}, {data}')
         job_logger.info(F'Телефон {device.serial} start job {data}')
 
@@ -116,7 +117,7 @@ async def root(payment_id: str,
         device = get_device()
         # device = 1
         if device:
-            logger.info(f'Выбран телефон {device}')
+            logger.info(f'Выбран телефон {device.serial}')
             data = {
                 'payment_id': payment_id,
                 'owner_name': owner_name,
