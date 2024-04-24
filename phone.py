@@ -71,19 +71,19 @@ async def job(device, data: dict):
         sms = ''
         step_2_required = data['step_2_required']
         start_time = datetime.datetime.now()
-        while not sms or not step_2_required:
-            await asyncio.sleep(3)
-            total_time = datetime.datetime.now() - start_time
-            if total_time > datetime.timedelta(minutes=3):
-                job_logger.debug('Ожидание вышло')
-                return False
-            response = requests.get(
-                url=f'{settings.HOST}/api/payment_status/',
-                data={'id': payment_id})
-            response_data = response.json()
-            sms = response_data.get('sms')
-            job_logger.debug(f'Ожидание sms_code {response.text}')
         if step_2_required:
+            while not sms:
+                await asyncio.sleep(3)
+                total_time = datetime.datetime.now() - start_time
+                if total_time > datetime.timedelta(minutes=3):
+                    job_logger.debug('Ожидание вышло')
+                    return False
+                response = requests.get(
+                    url=f'{settings.HOST}/api/payment_status/',
+                    data={'id': payment_id})
+                response_data = response.json()
+                sms = response_data.get('sms')
+                job_logger.debug(f'Ожидание sms_code {response.text}')
             job_logger.info(f'Получен код смс: {sms}')
             await insert_sms_code(device, data, sms)
         # Меняем статус на 6 Бот отработал
