@@ -14,6 +14,7 @@ from steps.step_2_sms_code_input import insert_sms_code
 app = FastAPI()
 
 # HOST = 'https://asu-payme.com'
+HOST = settings.HOST
 
 logger = get_my_loggers()
 
@@ -199,7 +200,7 @@ function getData() {{
 if __name__ == "__main__":
     try:
         logger.debug('start app')
-        uvicorn.run(app, host="0.0.0.0", port=3000)
+        uvicorn.run(app, host="127.0.0.1", port=3000)
     except KeyboardInterrupt:
         logger.info('Stoped')
 
