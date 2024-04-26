@@ -83,7 +83,8 @@ def refresh_phones_condition():
 
 
 async def make_screenshot(device: AdbDevice):
-    SCREEN_FOLDER = Path('/sdcard/DCIM/Screenshots')
+    # SCREEN_FOLDER = Path('/sdcard/DCIM/Screenshots')
+    SCREEN_FOLDER = Path('/sdcard/')
     file_path = SCREEN_FOLDER / f'{device.serial}.png'
     print(file_path)
     target_path = BASE_DIR / 'media' / f'{device.serial}.png'
