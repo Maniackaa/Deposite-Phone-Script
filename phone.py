@@ -84,8 +84,9 @@ async def job(phone: PhoneDevice, data: dict):
         # Меняем статус на 6 Бот отработал
         response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
                                   data={'id': payment_id, 'status': 6})
+        await asyncio.sleep(3)
         phone.db.set('current_status', PhoneDB.PhoneStatus.DONE)
-        make_screenshot(phone.device)
+        await make_screenshot(phone.device)
         phone.db.set('image', f'media/{phone.device.serial}.png')
         job_logger.debug('Статус 6 Бот отработал. Конец')
     except ConnectionError:

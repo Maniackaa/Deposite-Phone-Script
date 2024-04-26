@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 
@@ -81,7 +82,7 @@ def refresh_phones_condition():
             phone.set('current_status', PhoneDB.PhoneStatus.ERROR)
 
 
-def make_screenshot(device: AdbDevice):
+async def make_screenshot(device: AdbDevice):
     SCREEN_FOLDER = Path('/sdcard/DCIM/Screenshots')
     file_path = SCREEN_FOLDER / f'{device.serial}.png'
     print(file_path)
@@ -90,6 +91,7 @@ def make_screenshot(device: AdbDevice):
     # if target_path.exists():
     #     target_path.unlink()
     device.shell(f'screencap {file_path.as_posix()}')
+    await asyncio.sleep(1)
     downloaded = device.sync.pull(file_path.as_posix(), target_path.as_posix())
     print(downloaded)
 
@@ -121,3 +123,6 @@ def get_device() -> PhoneDevice:
 
 
 prepare_base()
+
+if __name__ == '__main__':
+    asyncio.run(make_screenshot(get_adb_devices()[0]))
