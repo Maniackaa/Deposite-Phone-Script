@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-HwwvtgBNo3bZJJLYd8oVXjrBZt8cqVSpeBNS5n7C8IVInixGAoxmnlMuBnhbgrkm" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<div class="container">
+
+  {% for phone in phones %}
+  <div class="row justify-content-start ">
+      <div class="col-2">
+
+          <img class="img-thumbnail" src="{{ phone.image }}" width="100" height="200">
+
+      </div>
+      <div
+            {% if phone.is_active %}
+            style="color: #000000"
+            {% else %}
+            style="color: #a9a9a9"
+            {% endif %}
+            class="col-6">
+        {{ phone.name }}:
+            {% if phone.is_active %}
+              <span style="background: #02f802">{{ phone.serial }}</span>
+            {% else %}
+              <span style="background: #fd3e3e">{{ phone.serial }}</span>
+            {% endif %}
+              <br>
+        <span>Статус: {{ phone.current_status }}</span><br>
+        <span>Платеж: {{ phone.payment_id }}</span><br>
+        <span>Сумма: {{ phone.amount }}</span><br>
+        <span>  <button  onclick="sendGetRequest({{ phone.id }})">Готов</button></span>
+
+      </div>
+
+  </div>
+
+    <hr>
+  {% endfor %}
+</div>
+<hr>
+
+<script>
+    function sendGetRequest(phonedb_id) {
+        fetch(`http://127.0.0.1:3000/phone_status_ready?phonedb_id=${phonedb_id}`, {
+            method: 'GET'
+        });
+    }
+    setTimeout(() => {
+  document.location.reload();
+}, 3000);
+
+</script>
+
+
+</body>
+</html>
