@@ -13,18 +13,16 @@
   {% for phone in phones %}
   <div class="row justify-content-start ">
       <div class="col-2">
-
           <img class="img-thumbnail" src="{{ phone.image }}" width="100" height="200">
-
       </div>
       <div
             {% if phone.is_active %}
-            style="color: #000000"
+              style="color: #000000"
             {% else %}
-            style="color: #a9a9a9"
+              style="color: #a9a9a9"
             {% endif %}
-            class="col-6">
-        {{ phone.name }}:
+              class="col-6">
+            {{ phone.name }}:
             {% if phone.is_active %}
               <span style="background: #02f802">{{ phone.serial }}</span>
             {% else %}
@@ -34,10 +32,9 @@
         <span>Статус: {{ phone.current_status }}</span><br>
         <span>Платеж: {{ phone.payment_id }}</span><br>
         <span>Сумма: {{ phone.amount }}</span><br>
-        <span>  <button  onclick="sendGetRequest({{ phone.id }})">Готов</button></span>
+        <span><button  onclick="sendGetRequest({{ phone.id }})">Готов</button></span>
 
       </div>
-
   </div>
 
     <hr>

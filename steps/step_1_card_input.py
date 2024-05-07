@@ -17,7 +17,7 @@ async def insert_card_data(adb_device: AdbDevice, data: dict):
     logger.debug(f'Ввожу данные карты {data}')
     adb_device.shell(f'input tap 280 751')
     await asyncio.sleep(1)
-    adb_device.shell(f'input text {owner_name}')
+    adb_device.shell(f'input text {amount}')
     await asyncio.sleep(1)
     adb_device.shell(f'input tap 550 1360')
     await asyncio.sleep(10)
