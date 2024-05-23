@@ -15,7 +15,6 @@ async def insert_card_data(adb_device: AdbDevice, data: dict):
     expired_year = data['expired_year']
     cvv = data['cvv']
     logger.debug(f'Ввожу данные карты {data}')
-    return
     adb_device.shell(f'input tap 280 751')
     await asyncio.sleep(1)
     adb_device.shell(f'input text {amount}')
