@@ -1,3 +1,4 @@
+import getpass
 import logging
 from functools import lru_cache
 from pathlib import Path
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     TIMEZONE: str = "Europe/Moscow"
     HOST: str
     LOGIN: str
-    PASSWORD: str = input('Введите пароль: ')
+    PASSWORD: str = getpass.getpass('Введите пароль: ')
 
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env")
 

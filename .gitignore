@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 phones.txt
+base.sqlite
 __pycache__/
 *.py[cod]
 *$py.class
