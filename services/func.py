@@ -1,15 +1,19 @@
 import asyncio
 import json
 from pathlib import Path
+from typing import Sequence
+
 
 from adbutils import AdbDevice, AdbClient
 from sqlalchemy import select, delete
 
-from config.bot_settings import BASE_DIR
+from database.db import last_phone_name
+from config.bot_settings import BASE_DIR, logger
 from database.db import Session, PhoneDB, PhoneDevice
 
 
 def read_phones():
+    """Чтение файла с настройками телефонов"""
     with open(BASE_DIR / 'phones.txt', 'r', encoding='utf-8') as file:
         phone_data = json.load(file)
         return phone_data
@@ -37,7 +41,7 @@ def prepare_base():
             phone = session.execute(q).scalar()
             if phone:
                 phone.name = name
-                phone.current_status = PhoneDB.PhoneStatus.ERROR
+                phone.current_status = PhoneDB.PhoneStatus.READY
                 session.commit()
             else:
                 new_phone = PhoneDB(name=name, serial=serial, current_status=PhoneDB.PhoneStatus.ERROR)
@@ -53,10 +57,11 @@ def read_phones_from_db():
         return res
 
 
-def get_ready_phones():
+def get_ready_phones() -> Sequence[PhoneDB]:
     session = Session(expire_on_commit=True)
     with session:
-        q = select(PhoneDB).filter(PhoneDB.current_status == PhoneDB.PhoneStatus.READY)
+        # q = select(PhoneDB).filter(PhoneDB.current_status == PhoneDB.PhoneStatus.READY)
+        q = select(PhoneDB)
         res = session.execute(q).scalars().all()
         return res
 
@@ -65,6 +70,14 @@ def get_phone_from_pk(pk) -> PhoneDB:
     session = Session(expire_on_commit=True)
     with session:
         q = select(PhoneDB).where(PhoneDB.id == pk)
+        res = session.execute(q).scalar()
+        return res
+
+
+def get_phone_from_name(name) -> PhoneDB:
+    session = Session(expire_on_commit=True)
+    with session:
+        q = select(PhoneDB).where(PhoneDB.name == name)
         res = session.execute(q).scalar()
         return res
 
@@ -110,20 +123,57 @@ def get_device_from_serial(serial) -> AdbDevice:
             return dev
 
 
-def get_device() -> PhoneDevice:
+def get_active_phones_names() -> list[str]:
+    # Фильтрует подключенные телефоны c файла настроек
+    active_phones = []
+    phone_data = read_phones()
+    active_serials = [device.serial for device in get_adb_devices()]
+    for phone_num, serial in phone_data.items():
+        if serial in active_serials:
+            active_phones.append(phone_num)
+    return active_phones
+
+
+
+
+
+def get_next_device_name() -> str:
+    # Выдает по очереди телефон
+    global last_phone_name
     try:
-        phones_db = get_ready_phones()
-        if phones_db:
-            phone_db: PhoneDB = phones_db[0]
-            for adb_device in get_adb_devices():
-                if adb_device.serial == phone_db.serial:
-                    phone: PhoneDevice = PhoneDevice(db=phone_db, device=adb_device)
-                    return phone
+        active_phones_names = get_active_phones_names()
+        logger.debug(f'active_phones: {active_phones_names}')
+        count_active = len(active_phones_names)
+        if active_phones_names:
+            new_phone_name = last_phone_name[0]
+            if not last_phone_name or count_active == 1:
+                new_phone_name = active_phones_names[0]
+            else:
+                # Находим следующий живой номер
+                for name in active_phones_names:
+                    if name > last_phone_name[0]:
+                        new_phone_name = name
+                        break
+
+            if last_phone_name[0] == new_phone_name:
+                new_phone_name = active_phones_names[0]
+            last_phone_name[0] = new_phone_name
+            logger.debug(f'new last_phone_name: {new_phone_name}')
+            return new_phone_name
+        logger.debug('Телефонов не найдено')
     except Exception as err:
         raise err
 
 
-prepare_base()
+def get_phone_device_from_name(name):
+    phone_db = get_phone_from_name(name)
+    for adb_device in get_adb_devices():
+        if adb_device.serial == phone_db.serial:
+            phone: PhoneDevice = PhoneDevice(db=phone_db, device=adb_device)
+            return phone
 
-if __name__ == '__main__':
-    asyncio.run(make_screenshot(get_adb_devices()[0]))
+
+prepare_base()
+new_name = get_next_device_name()
+phone_device = get_phone_device_from_name(new_name)
+

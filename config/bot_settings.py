@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     BASE_DIR: Path = BASE_DIR
     TIMEZONE: str = "Europe/Moscow"
     HOST: str
+    LOGIN: str
+    PASSWORD: str = input('Введите пароль: ')
 
     model_config = SettingsConfigDict(env_file=BASE_DIR / ".env")
 

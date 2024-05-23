@@ -9,9 +9,10 @@ from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from config.bot_settings import get_my_loggers, settings, tz
-from database.db import PhoneDB, PhoneDevice
-from services.func import read_phones_from_db, get_phone_from_pk, get_device_from_serial, refresh_phones_condition, \
-    make_screenshot, get_device
+from database.db import PhoneDB, PhoneDevice, last_phone_name
+from services.api_func import get_token, refresh_token, check_payment, change_payment_status
+from services.func import read_phones_from_db, get_phone_from_pk, refresh_phones_condition, \
+    make_screenshot, get_next_device_name, get_phone_device_from_name
 from steps.step_1_card_input import insert_card_data
 from steps.step_2_sms_code_input import insert_sms_code
 
@@ -23,15 +24,18 @@ HOST = settings.HOST
 logger = get_my_loggers()
 
 
-async def get_status(payment_id):
-    response = requests.get(url=f'{settings.HOST}/api/payment_status/',
-                            data={
-                                'id': f'{payment_id}'}
-                            )
-    status = response.json().get('status')
-    logger.debug(f'status {payment_id}: {status}')
-    return status
-
+# async def get_status(payment_id):
+#     try:
+#         response = requests.get(url=f'{settings.HOST}/api/payment/{payment_id}/',
+#                                 data={
+#                                     'id': f'{payment_id}'}
+#                                 )
+#         status = response.json().get('status')
+#         logger.debug(f'status {payment_id}: {status}')
+#         return int(status)
+#     except Exception as err:
+#         logger.error('Ошибка при запросе статуса: err')
+#
 
 async def job(phone: PhoneDevice, data: dict):
     """Работа телефона.
@@ -46,21 +50,24 @@ async def job(phone: PhoneDevice, data: dict):
         job_logger = get_my_loggers().bind(phone=phone, payment_id=payment_id)
         job_logger.info(F'Телефон {phone} start job {data}')
 
-        status = await get_status(payment_id)
-        if status != 3:
+        payment_check = await check_payment(payment_id)
+        status = payment_check.get('status')
+        print('status:', status)
+        if str(status) != '3':
             job_logger.warning(f'Некорректный статус: {status}')
             return
 
         # # Меняем статус на 4 Отправлено боту
-        response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
+        response = requests.patch(url=f'{settings.HOST}/api/v1/payment_status/',
                                   data={'id': payment_id, 'status': 4})
+        await change_payment_status(payment_id, 4)
         job_logger.debug('Изменен статус на 4. Отправлено боту')
         # Ввод данных карты
         await insert_card_data(adb_device, data=data)
         # Меняем статус на 5 Ожидание смс
-        phone.db.set('current_status',  PhoneDB.PhoneStatus.WAIT_SMS)
-        response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
-                                  data={'id': payment_id, 'status': 5})
+
+        await change_payment_status(payment_id, 5)
+        phone.db.set('current_status', PhoneDB.PhoneStatus.WAIT_SMS)
 
         sms = ''
         step_2_required = data['step_2_required']
@@ -74,7 +81,7 @@ async def job(phone: PhoneDevice, data: dict):
                     job_logger.debug('Ожидание вышло')
                     return False
                 response = requests.get(
-                    url=f'{settings.HOST}/api/payment_status/',
+                    url=f'{settings.HOST}/api/v1/payment_status/',
                     data={'id': payment_id})
                 response_data = response.json()
                 sms = response_data.get('sms')
@@ -82,10 +89,9 @@ async def job(phone: PhoneDevice, data: dict):
             job_logger.info(f'Получен код смс: {sms}')
             await insert_sms_code(adb_device, data, sms)
         # Меняем статус на 6 Бот отработал
-        response = requests.patch(url=f'{settings.HOST}/api/payment_status/',
-                                  data={'id': payment_id, 'status': 6})
-        await asyncio.sleep(3)
-        phone.db.set('current_status', PhoneDB.PhoneStatus.DONE)
+        await change_payment_status(payment_id, 6)
+        await asyncio.sleep(5)
+        phone.db.set('current_status', PhoneDB.PhoneStatus.READY)
         await make_screenshot(phone.device)
         phone.db.set('image', f'media/{phone.device.serial}.png')
         job_logger.debug('Статус 6 Бот отработал. Конец')
@@ -98,7 +104,6 @@ async def job(phone: PhoneDevice, data: dict):
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, payment_id: str,
                amount: str,
-               owner_name: str,
                card_number: str,
                expired_month: int,
                expired_year: int,
@@ -110,10 +115,12 @@ async def root(request: Request, payment_id: str,
                step_2_y: int = 0,
                step_3_x: int = 0,
                step_3_y: int = 0,
+               owner_name: str = "",
                sms_code: str | None = None,):
     try:
         logger.debug(f'payment_id: {payment_id}')
-        phone = get_device()
+        phone_name = get_next_device_name()
+        phone = get_phone_device_from_name(phone_name)
         if phone:
             phone.db.set('payment_id', payment_id)
             phone.db.set('amount', amount)
@@ -140,7 +147,7 @@ async def root(request: Request, payment_id: str,
             script = f"""<script>
 function getData() {{
             var xhr = new XMLHttpRequest();
-            xhr.open("POST", "{settings.HOST}/api/payment_status/", true);
+            xhr.open("POST", "{settings.HOST}/api/v1/payment_status/", true);
             xhr.setRequestHeader("Content-Type", "application/json");
 
             xhr.onload = function () {{
@@ -170,7 +177,7 @@ function getData() {{
            </script>"""
 
             tag_data = """
-            <h3>Платеж {payment_id}</h3>
+            <h3>Платеж <a href='{host}/payments/{payment_id}/'>{payment_id}</a></h3>
             <h3>Сумма {amount}</h3>
             <h4>Телефон: {device_serial}</h4>
             {card_number}<br>
@@ -182,10 +189,10 @@ function getData() {{
             </div>
             {script}
             """
-            return HTMLResponse(content=tag_data.format(
-                payment_id=payment_id, amount=amount, device_serial=phone.device.serial,
+            return HTMLResponse(content=tag_data.format(host=settings.HOST,
+                payment_id=payment_id, amount=amount, device_serial=f'{phone_name}: {phone.device.serial}',
                 card_number=card_number, expired_month=expired_month, expired_year=expired_year, name=data['name'],
-                sms='sms', script=script))
+                sms='sms', script=None))
 
         else:
             return "Телефон не найден"
@@ -211,13 +218,15 @@ async def root(request: Request):
     refresh_phones_condition()
     phones = read_phones_from_db()
     templates = Jinja2Templates(directory="templates")
-    return templates.TemplateResponse(
-        "phone_control.html",
-        {
+    context = {
             "request": request,
             "phones": phones,
-            "script2": script2
+            "script2": script2,
+            "last_phone_name": last_phone_name[0]
         }
+    return templates.TemplateResponse(
+        "phone_control.html",
+        context
     )
 
 
@@ -232,10 +241,22 @@ async def root(request: Request, phonedb_id: int):
         return True
 
 
+@app.post("/merchtest/")
+async def test(request: Request):
+    print(await request.json())
+    return True
+
+
 if __name__ == "__main__":
     try:
         logger.debug('start app')
+        token = asyncio.run(get_token())
+        if not token.get('access'):
+            raise ValueError('Неверный пароль/логин')
+        asyncio.run(refresh_token())
         uvicorn.run(app, host="127.0.0.1", port=3000)
     except KeyboardInterrupt:
         logger.info('Stoped')
+    except Exception as err:
+        raise err
 

@@ -68,6 +68,9 @@ class PhoneDevice:
         self.device = device
 
 
+last_phone_name: list = ['']
+
+
 if not database_exists(db_url):
     create_database(db_url)
 Base.metadata.create_all(engine)

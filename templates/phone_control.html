@@ -9,7 +9,6 @@
 <body>
 
 <div class="container">
-
   {% for phone in phones %}
   <div class="row justify-content-start ">
       <div class="col-2">
@@ -22,6 +21,9 @@
               style="color: #a9a9a9"
             {% endif %}
               class="col-6">
+            {% if phone.name == last_phone_name %}
+                🚀
+            {% endif %}
             {{ phone.name }}:
             {% if phone.is_active %}
               <span style="background: #02f802">{{ phone.serial }}</span>
@@ -32,7 +34,7 @@
         <span>Статус: {{ phone.current_status }}</span><br>
         <span>Платеж: {{ phone.payment_id }}</span><br>
         <span>Сумма: {{ phone.amount }}</span><br>
-        <span><button  onclick="sendGetRequest({{ phone.id }})">Готов</button></span>
+<!--        <span><button  onclick="sendGetRequest({{ phone.id }})">Готов</button></span>-->
 
       </div>
   </div>
