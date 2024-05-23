@@ -52,7 +52,7 @@ def prepare_base():
 def read_phones_from_db():
     session = Session(expire_on_commit=True)
     with session:
-        q = select(PhoneDB)
+        q = select(PhoneDB).order_by('name')
         res = session.execute(q).scalars().all()
         return res
 
