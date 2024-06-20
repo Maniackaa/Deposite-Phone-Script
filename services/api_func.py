@@ -62,21 +62,43 @@ async def refresh_token() -> str:
         logger.error(f'Ошибка обновления токена: {err}')
 
 
+# async def check_payment(payment_id, count=0) -> dict:
+#
+#     url = f"{settings.HOST}/api/v1/payment_status/{payment_id}/"
+#     logger.info(f'Проверка статуса {url}')
+#     headers = {
+#         'Authorization': f'Bearer {data["access"]}'
+#     }
+#     response = requests.request("GET", url, headers=headers)
+#     logger.debug(response.status_code)
+#     if response.status_code == 401:
+#         logger.info('Обновляем токен')
+#         await refresh_token()
+#         await asyncio.sleep(count)
+#         return await check_payment(payment_id, count=count+1)
+#     return response.json()
+
+
 async def check_payment(payment_id, count=0) -> dict:
 
     url = f"{settings.HOST}/api/v1/payment_status/{payment_id}/"
-    logger.info(f'Проверка статуса {url}')
+    logger.debug(f'Проверка статуса {url}')
     headers = {
         'Authorization': f'Bearer {data["access"]}'
     }
-    response = requests.request("GET", url, headers=headers)
-    logger.debug(response.status_code)
-    if response.status_code == 401:
-        logger.info('Обновляем токен')
-        await refresh_token()
-        await asyncio.sleep(count)
-        return await check_payment(payment_id, count=count+1)
-    return response.json()
+    async with aiohttp.ClientSession(timeout=ClientTimeout(10)) as session:
+        async with session.put(url, headers=headers, ssl=False) as response:
+            if response.status == 200:
+                logger.debug(f'{response.status}')
+                result = await response.json()
+                return result
+            elif response.status == 401:
+                if count > 3:
+                    return {'status': 'error check_payment'}
+                logger.debug('Обновляем токен')
+                await asyncio.sleep(count)
+                await refresh_token()
+                return await check_payment(payment_id, count=count + 1)
 
 
 async def change_payment_status(payment_id: str, status: int):
@@ -91,7 +113,7 @@ async def change_payment_status(payment_id: str, status: int):
         json_data = {
             'status': status,
         }
-        async with aiohttp.ClientSession(timeout=ClientTimeout(5)) as session:
+        async with aiohttp.ClientSession(timeout=ClientTimeout(10)) as session:
             async with session.put(url, headers=headers, json=json_data, ssl=False) as response:
                 if response.status == 200:
                     logger.debug(f'Статус {payment_id} изменен на {status}')
