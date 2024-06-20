@@ -20,6 +20,7 @@ async def insert_card_data(adb_device: AdbDevice, data: dict):
     adb_device.shell(f'input text {amount}')
     await asyncio.sleep(1)
     adb_device.shell(f'input tap 550 1550')
+    adb_device.shell(f'input tap 550 1360')
     await asyncio.sleep(10)
     adb_device.shell(f'input tap 77 1380')
     await asyncio.sleep(0.5)

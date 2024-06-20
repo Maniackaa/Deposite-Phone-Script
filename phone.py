@@ -71,6 +71,7 @@ async def job(phone: PhoneDevice, data: dict):
 
         sms = ''
         step_2_required = data['step_2_required']
+        logger.debug(f'step_2_required: {step_2_required}')
         start_time = datetime.datetime.now()
         if step_2_required:
             job_logger.debug('Статус 5 Ожидание смс')
@@ -81,7 +82,7 @@ async def job(phone: PhoneDevice, data: dict):
                     job_logger.debug('Ожидание вышло')
                     return False
                 response = requests.get(
-                    url=f'{settings.HOST}/api/v1/payment_status/',
+                    url=f'{settings.HOST}/api/v1/payment/{payment_id}/',
                     data={'id': payment_id})
                 response_data = response.json()
                 sms = response_data.get('sms')
