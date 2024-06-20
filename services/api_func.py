@@ -119,17 +119,22 @@ async def change_payment_status(payment_id: str, status: int):
                     logger.debug(f'Статус {payment_id} изменен на {status}')
                 else:
                     logger.warning(f'Статус {payment_id} НЕ ИЗМЕНЕН! {response.status}')
+                logger.debug(f'response.status: {response.status}')
                 result = await response.json()
                 logger.debug(result)
         return result
     except Exception as err:
         logger.error(f'Ошибка при смене статуса платежа: {err}')
-        raise err
+        # raise err
 
 
 async def main():
-    await change_payment_status('21fc7181-a6c0-4c60-8130-c17742b2c84d', 3)
-    await change_payment_status('21fc7181-a6c0-4c60-8130-c17742b2c84d', 5)
+    status = 3
+    await change_payment_status('8ea08ac0-b379-41af-8db3-1ea95b702eaf', status)
+    await change_payment_status('f01c7a83-fe68-4b88-bee3-1875cd0744ee', status)
+    await change_payment_status('7bcee34f-a56a-4206-bf00-09ffe383e43a', status)
+    await change_payment_status('421385a0-1320-41c4-87c9-7a88e9960b28', status)
+    await change_payment_status('8ea08ac0-b379-41af-8db3-1ea95b702eaf', status)
 
 if __name__ == '__main__':
     asyncio.run(get_token())
