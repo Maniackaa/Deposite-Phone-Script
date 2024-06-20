@@ -58,8 +58,8 @@ async def job(phone: PhoneDevice, data: dict):
             return
 
         # # Меняем статус на 4 Отправлено боту
-        response = requests.patch(url=f'{settings.HOST}/api/v1/payment_status/',
-                                  data={'id': payment_id, 'status': 4})
+        # response = requests.patch(url=f'{settings.HOST}/api/v1/payment_status/',
+        #                           data={'id': payment_id, 'status': 4})
         await change_payment_status(payment_id, 4)
         job_logger.debug('Изменен статус на 4. Отправлено боту')
         # Ввод данных карты
@@ -81,12 +81,12 @@ async def job(phone: PhoneDevice, data: dict):
                 if total_time > datetime.timedelta(minutes=3):
                     job_logger.debug('Ожидание вышло')
                     return False
-                response = requests.get(
-                    url=f'{settings.HOST}/api/v1/payment/{payment_id}/',
-                    data={'id': payment_id})
-                response_data = response.json()
-                sms = response_data.get('sms')
-                job_logger.debug(f'Ожидание sms_code {response.text}')
+                # response = requests.get(
+                #     url=f'{settings.HOST}/api/v1/payment/{payment_id}/')
+                response_data = await check_payment(payment_id)
+                logger.debug(f'response_data: {response_data}')
+                sms = response_data.get('sms_code')
+                job_logger.debug(f'Ожидание sms_code {sms}')
             job_logger.info(f'Получен код смс: {sms}')
             await insert_sms_code(adb_device, data, sms)
         # Меняем статус на 6 Бот отработал

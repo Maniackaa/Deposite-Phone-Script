@@ -63,12 +63,14 @@ async def refresh_token() -> str:
 
 
 async def check_payment(payment_id, count=0) -> dict:
-    logger.info('Проверка статуса')
-    url = f"{settings.HOST}/api/v1/payment/{payment_id}/"
+
+    url = f"{settings.HOST}/api/v1/payment_status/{payment_id}/"
+    logger.info(f'Проверка статуса {url}')
     headers = {
         'Authorization': f'Bearer {data["access"]}'
     }
     response = requests.request("GET", url, headers=headers)
+    logger.debug(response.status_code)
     if response.status_code == 401:
         logger.info('Обновляем токен')
         await refresh_token()
@@ -94,8 +96,9 @@ async def change_payment_status(payment_id: str, status: int):
                 if response.status == 200:
                     logger.debug(f'Статус {payment_id} изменен на {status}')
                 else:
-                    logger.warning(f'Статус {payment_id} НЕ ИЗМЕНЕН!')
+                    logger.warning(f'Статус {payment_id} НЕ ИЗМЕНЕН! {response.status}')
                 result = await response.json()
+                logger.debug(result)
         return result
     except Exception as err:
         logger.error(f'Ошибка при смене статуса платежа: {err}')
@@ -103,8 +106,8 @@ async def change_payment_status(payment_id: str, status: int):
 
 
 async def main():
-    await change_payment_status('25a1423f-6f5e-4001-aeba-76b3242c03aa', 3)
-    await change_payment_status('25a1423f-6f5e-4001-aeba-76b3242c03aa', 5)
+    await change_payment_status('21fc7181-a6c0-4c60-8130-c17742b2c84d', 3)
+    await change_payment_status('21fc7181-a6c0-4c60-8130-c17742b2c84d', 5)
 
 if __name__ == '__main__':
     asyncio.run(get_token())
