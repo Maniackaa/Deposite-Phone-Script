@@ -31,6 +31,7 @@ async def insert_card_data(adb_device: AdbDevice, data: dict):
     adb_device.shell(press_tab)
     await asyncio.sleep(1)
     adb_device.shell(f'input text {expired_month}{expired_year}')
+    await asyncio.sleep(1)
     adb_device.shell(press_tab)
     await asyncio.sleep(1)
     adb_device.shell(f'input text {cvv}')
